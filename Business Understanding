@@ -1,1 +1,150 @@
+#Total Revenue
+select round(sum(price+freight_value),2) as total_revenue from order_items;
 
+#Monthly Revenue Trend
+SELECT 
+    DATE_FORMAT(o.order_purchase_timestamp, '%Y-%M') AS month,
+    ROUND(SUM(oi.price + oi.freight_value), 2) AS revenue
+FROM
+    orders o
+        JOIN
+    order_items oi ON o.order_id = oi.order_id
+GROUP BY month
+ORDER BY month;
+
+#Top 10 Product Categories by Revenue
+SELECT 
+    pt.product_category_name_english,
+    ROUND(SUM(oi.price + oi.freight_value), 2) AS revenue
+FROM
+    product p
+        JOIN
+    order_items oi ON p.product_id = oi.product_id
+        JOIN
+    product_name_translation pt ON p.product_category_name = pt.product_category_name
+GROUP BY pt.product_category_name_english
+ORDER BY revenue DESC
+LIMIT 10;
+
+#Order & Time Trend Analysis
+
+#Order per month
+SELECT 
+    DATE_FORMAT(order_purchase_timestamp, '%Y-%M') AS order_month,
+    COUNT(order_id) AS total_orders
+FROM
+    orders
+GROUP BY order_month
+ORDER BY order_month;
+
+#Order per Year
+SELECT 
+    YEAR(order_purchase_timestamp) AS order_Year,
+    COUNT(Order_id) AS total_orders
+FROM
+    orders
+GROUP BY order_year
+ORDER BY order_year;
+
+# Revenue Trend
+SELECT 
+    YEAR(o.order_purchase_timestamp) AS year,
+    MONTH(o.order_purchase_timestamp) AS month,
+    ROUND(SUM(oi.price + oi.freight_value),2) AS revenue
+FROM orders o
+JOIN order_items oi ON o.order_id = oi.order_id
+GROUP BY year, month
+ORDER BY year, month;
+
+use olist_analysis;
+
+#Average Order values
+SELECT 
+    YEAR(o.order_purchase_timestamp) AS year,
+    MONTH(o.order_purchase_timestamp) AS month, COUNT(distinct o.order_id) as order_count, 
+    ROUND(
+        SUM(oi.price + oi.freight_value) / COUNT(DISTINCT o.order_id),
+        2
+    ) AS avg_order_value
+FROM orders o
+JOIN order_items oi ON o.order_id = oi.order_id
+GROUP BY year, month
+ORDER BY year, month;
+
+#Top 10 Cities by Revenue
+SELECT 
+    c.customer_city AS city,
+    SUM(oi.price + oi.freight_value) AS revenue
+FROM
+    customers c
+        JOIN
+    orders o ON c.customer_id = o.customer_id
+        JOIN
+    order_items oi ON oi.order_id = o.order_id
+GROUP BY c.customer_city
+ORDER BY revenue DESC
+LIMIT 10;
+
+#Frequency
+SELECT 
+    customer_unique_id, COUNT(order_id) AS Frequency
+FROM
+    orders o
+        JOIN
+    customers c ON o.customer_id = c.customer_id
+GROUP BY c.customer_unique_id
+HAVING Frequency > 1
+ORDER BY Frequency DESC;
+
+#Recency
+SELECT 
+    c.customer_unique_id,
+    MAX(o.order_purchase_timestamp) AS last_purchase,
+    DATEDIFF((SELECT 
+                    MAX(order_purchase_timestamp)
+                FROM
+                    orders),
+            MAX(o.order_purchase_timestamp)) AS recency_days
+FROM
+    orders o
+        JOIN
+    customers c ON o.customer_id = c.customer_id
+GROUP BY c.customer_unique_id;
+
+use olist_analysis;
+#Monetary
+SELECT 
+    c.customer_unique_id,
+    SUM(oi.price + oi.freight_value) AS monetary FROM
+    order_items oi
+        JOIN
+    orders o ON o.order_id = oi.order_id
+        JOIN
+    customers c ON c.customer_id = o.customer_id
+GROUP BY c.customer_unique_id
+ORDER BY monetary DESC;
+
+#Delivery Analysis
+select avg(datediff(order_delivered_customer_date, order_purchase_timestamp)) as 
+avg_delivery_days from orders where order_status = "Delivered"; 
+
+#Payment mode analysis
+select payment_type, count(order_id) from payments p group by payment_type;
+
+#Review Impact Analysis
+SELECT 
+    review_score, COUNT(*) AS total_reviews
+FROM
+    review
+GROUP BY review_score
+ORDER BY total_reviews DESC;
+
+#Statewise sellers summary
+SELECT 
+    seller_state, COUNT(order_id) AS orders
+FROM
+    order_items oi
+        JOIN
+    sellers s ON s.seller_id = oi.seller_id
+GROUP BY seller_state
+ORDER BY orders DESC;
