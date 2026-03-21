@@ -1,0 +1,78 @@
+WITH rfm_base AS (
+    SELECT 
+        c.customer_unique_id,
+
+        DATEDIFF(
+            (SELECT MAX(order_purchase_timestamp) FROM orders),
+            MAX(o.order_purchase_timestamp)
+        ) AS recency_days,
+
+        COUNT(DISTINCT o.order_id) AS frequency,
+
+        ROUND(SUM(oi.price + oi.freight_value),2) AS monetary_value
+
+    FROM orders o
+    JOIN customers c 
+        ON o.customer_id = c.customer_id
+    JOIN order_items oi 
+        ON o.order_id = oi.order_id
+    GROUP BY c.customer_unique_id
+),
+
+rfm_score AS (
+    SELECT *,
+    
+        NTILE(5) OVER (ORDER BY recency_days DESC) AS r_score,
+        NTILE(5) OVER (ORDER BY frequency) AS f_score,
+        NTILE(5) OVER (ORDER BY monetary_value) AS m_score
+        
+    FROM rfm_base
+)
+
+SELECT *,
+       CONCAT(r_score, f_score, m_score) AS rfm_combination
+FROM rfm_score;
+
+#Customer Segmentation
+SELECT *,
+    CASE
+        WHEN r_score = 5 AND f_score = 5 AND m_score = 5 
+            THEN 'Champions'
+
+        WHEN r_score >= 4 AND f_score >= 4 
+            THEN 'Loyal Customers'
+
+        WHEN r_score >= 4 AND f_score <= 2 
+            THEN 'New Customers'
+
+        WHEN r_score <= 2 AND f_score >= 4 
+            THEN 'At Risk'
+
+        WHEN r_score = 1 AND f_score = 1 
+            THEN 'Lost Customers'
+
+        ELSE 'Average Customers'
+    END AS customer_segment
+FROM rfm_score;
+
+SELECT 
+    customer_segment,
+    COUNT(*) AS total_customers, ROUND(
+        COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (),
+        2
+    ) AS customer_percentage, 
+    ROUND(AVG(monetary_value),2) AS avg_spending
+FROM rfm_score
+GROUP BY customer_segment;
+
+#Percentage of Revenue Contribution
+SELECT 
+    customer_segment,
+    ROUND(SUM(monetary_value),2) AS total_revenue,
+    ROUND(
+        SUM(monetary_value) * 100.0 / SUM(SUM(monetary_value)) OVER (),
+        2
+    ) AS revenue_percentage
+FROM rfm_score GROUP BY customer_segment
+ORDER BY total_revenue DESC;
+
