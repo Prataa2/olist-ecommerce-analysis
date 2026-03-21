@@ -26,7 +26,6 @@ GROUP BY pt.product_category_name_english
 ORDER BY revenue DESC
 LIMIT 10;
 
-#Order & Time Trend Analysis
 
 #Order per month
 SELECT 
